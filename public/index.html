@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evacuation Relief Tracker</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <header class="bg-sky-700 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-lg font-bold">Evacuation Center Headcount &amp; Relief Goods Tracker</h1>
+        <p class="text-sky-100 text-xs">MDRRMO &middot; Pangasinan</p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-sky-100">Live headcount</div>
+        <div class="text-2xl font-bold" id="live-headcount">–</div>
+      </div>
+    </div>
+    <nav class="max-w-6xl mx-auto px-4 pb-3 flex gap-1 overflow-x-auto" id="tabs">
+      <a href="#dashboard" class="tab" data-tab="dashboard">Dashboard</a>
+      <a href="#families" class="tab" data-tab="families">Families</a>
+      <a href="#distribute" class="tab" data-tab="distribute">Relief distribution</a>
+      <a href="#stock" class="tab" data-tab="stock">Stock</a>
+      <a href="#centers" class="tab" data-tab="centers">Centers</a>
+    </nav>
+  </header>
+
+  <div id="toast" class="hidden fixed top-4 right-4 z-50 max-w-sm rounded-lg px-4 py-3 text-sm font-medium shadow-lg"></div>
+
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <!-- DASHBOARD -->
+    <section data-view="dashboard" class="space-y-4">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3" id="kpis"></div>
+      <div id="alerts" class="space-y-2"></div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card"><h2 class="font-semibold mb-2">Headcount vs capacity per center</h2><div class="h-64"><canvas id="chart-centers"></canvas></div></div>
+        <div class="card"><h2 class="font-semibold mb-2">Relief packs given, last 7 days</h2><div class="h-64"><canvas id="chart-days"></canvas></div></div>
+      </div>
+      <div class="card"><h2 class="font-semibold mb-2">Stock on hand</h2><div class="h-64"><canvas id="chart-stock"></canvas></div></div>
+      <p class="text-xs text-slate-400">Dashboard refreshes every 15 seconds. <span id="updated-at"></span></p>
+    </section>
+
+    <!-- FAMILIES -->
+    <section data-view="families" class="space-y-4 hidden">
+      <form id="family-form" class="card grid md:grid-cols-6 gap-3 items-end">
+        <h2 class="md:col-span-6 font-semibold">Register a family</h2>
+        <div class="md:col-span-2"><label class="label" for="f-center">Evacuation center</label><select id="f-center" name="center_id" class="input center-select" required></select></div>
+        <div class="md:col-span-2"><label class="label" for="f-head">Head of family</label><input id="f-head" name="head_name" class="input" required maxlength="120"></div>
+        <div><label class="label" for="f-members">Members</label><input id="f-members" name="members" type="number" min="1" max="30" class="input" required></div>
+        <div><label class="label" for="f-origin">Origin barangay</label><input id="f-origin" name="origin_barangay" class="input" required maxlength="80"></div>
+        <div class="md:col-span-2"><label class="label" for="f-contact">Contact (optional)</label><input id="f-contact" name="contact_number" class="input" placeholder="09171234567"></div>
+        <div class="md:col-span-4 text-right"><button class="btn-primary">Register family</button></div>
+      </form>
+      <div class="card">
+        <div class="flex flex-wrap gap-2 mb-3">
+          <select id="fam-filter-center" class="input w-auto center-select" data-all="All centers"></select>
+          <select id="fam-filter-status" class="input w-auto">
+            <option value="present">Present</option><option value="departed">Checked out</option><option value="">All</option>
+          </select>
+          <input id="fam-search" class="input w-auto flex-1" placeholder="Search name or barangay">
+        </div>
+        <div class="overflow-x-auto"><table class="w-full">
+          <thead><tr><th class="th">Head of family</th><th class="th">Members</th><th class="th">Origin</th><th class="th">Center</th><th class="th">Status</th><th class="th"></th></tr></thead>
+          <tbody id="family-rows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- DISTRIBUTE -->
+    <section data-view="distribute" class="space-y-4 hidden">
+      <form id="dist-form" class="card grid md:grid-cols-6 gap-3 items-end">
+        <h2 class="md:col-span-6 font-semibold">Give relief goods</h2>
+        <div class="md:col-span-2"><label class="label" for="d-center">Center</label><select id="d-center" class="input center-select"></select></div>
+        <div class="md:col-span-2"><label class="label" for="d-family">Family</label><select id="d-family" name="family_id" class="input" required></select></div>
+        <div class="md:col-span-2"><label class="label" for="d-item">Relief item</label><select id="d-item" name="item_id" class="input" required></select></div>
+        <div><label class="label" for="d-qty">Quantity</label><input id="d-qty" name="quantity" type="number" min="1" max="50" value="1" class="input" required></div>
+        <div class="md:col-span-2"><label class="label" for="d-by">Given by</label><input id="d-by" name="distributed_by" class="input" required maxlength="80" placeholder="Volunteer name"></div>
+        <div class="md:col-span-3 text-right"><button class="btn-primary">Log distribution</button></div>
+        <p class="md:col-span-6 text-xs text-slate-500">A family can receive each item only once per day. A second attempt is blocked and shows who gave it first.</p>
+      </form>
+      <div class="card">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <h2 class="font-semibold flex-1">Distribution log</h2>
+          <input id="log-date" type="date" class="input w-auto">
+        </div>
+        <div class="overflow-x-auto"><table class="w-full">
+          <thead><tr><th class="th">Date</th><th class="th">Family</th><th class="th">Center</th><th class="th">Item</th><th class="th">Qty</th><th class="th">Given by</th></tr></thead>
+          <tbody id="dist-rows"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- STOCK -->
+    <section data-view="stock" class="space-y-4 hidden">
+      <form id="item-form" class="card grid md:grid-cols-5 gap-3 items-end">
+        <h2 class="md:col-span-5 font-semibold">Add a relief item</h2>
+        <div class="md:col-span-2"><label class="label" for="i-name">Item name</label><input id="i-name" name="name" class="input" required maxlength="80"></div>
+        <div><label class="label" for="i-unit">Unit</label><input id="i-unit" name="unit" class="input" required maxlength="30" placeholder="packs"></div>
+        <div><label class="label" for="i-qty">Starting stock</label><input id="i-qty" name="quantity" type="number" min="0" value="0" class="input"></div>
+        <div><label class="label" for="i-low">Low-stock alert at</label><input id="i-low" name="low_stock_threshold" type="number" min="0" value="20" class="input"></div>
+        <div class="md:col-span-5 text-right"><button class="btn-primary">Add item</button></div>
+      </form>
+      <div class="card overflow-x-auto"><table class="w-full">
+        <thead><tr><th class="th">Item</th><th class="th">On hand</th><th class="th">Status</th><th class="th">Restock</th></tr></thead>
+        <tbody id="item-rows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- CENTERS -->
+    <section data-view="centers" class="space-y-4 hidden">
+      <form id="center-form" class="card grid md:grid-cols-5 gap-3 items-end">
+        <h2 class="md:col-span-5 font-semibold">Add an evacuation center</h2>
+        <div class="md:col-span-2"><label class="label" for="c-name">Name</label><input id="c-name" name="name" class="input" required maxlength="120"></div>
+        <div><label class="label" for="c-brgy">Barangay</label><input id="c-brgy" name="barangay" class="input" required maxlength="80"></div>
+        <div><label class="label" for="c-muni">Municipality</label><input id="c-muni" name="municipality" class="input" required maxlength="80"></div>
+        <div><label class="label" for="c-cap">Capacity (persons)</label><input id="c-cap" name="capacity" type="number" min="1" class="input" required></div>
+        <div class="md:col-span-5 text-right"><button class="btn-primary">Add center</button></div>
+      </form>
+      <div class="card overflow-x-auto"><table class="w-full">
+        <thead><tr><th class="th">Center</th><th class="th">Location</th><th class="th">Families</th><th class="th">Headcount</th><th class="th">Occupancy</th><th class="th"></th></tr></thead>
+        <tbody id="center-rows"></tbody>
+      </table></div>
+    </section>
+  </main>
+
+  <script src="/vendor/chart.umd.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
